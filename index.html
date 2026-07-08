@@ -239,6 +239,19 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','
 function subjGun(name){ const m=DB.subject_master[name]; if(m)return m['교과군'];
  const n=name.replace(/\s/g,''); for(const k in DB.subject_master){ if(k.replace(/\s/g,'')===n)return DB.subject_master[k]['교과군']; } return ''; }
 function subjType(name){ const m=DB.subject_master[name]; if(m)return m['유형']||''; const n=name.replace(/\s/g,''); for(const k in DB.subject_master){ if(k.replace(/\s/g,'')===n)return DB.subject_master[k]['유형']||''; } return ''; }
+/* 2022 개정 교육과정(2025년 입학생부터 적용) 실제 평가방식 규정 기반
+   - 공통·일반선택·진로선택: 5등급 상대평가 + 성취도(A~E) 병기
+   - 융합선택: 원칙적으로 5등급 상대평가, 단 '사회·과학' 교과의 융합선택 9과목만 절대평가(석차등급 미기재)
+   - 체육·예술 교과(군), 과학탐구실험1·2: 유형과 무관하게 3단계 성취도(A/B/C)만, 등급 없음
+   - 교양 교과(군): P(이수)만 표기, 등급 없음 */
+function subjEval(name){
+ const gun=subjGun(name), typ=subjType(name), sn=name.replace(/\s/g,'');
+ if(sn==='과학탐구실험1'||sn==='과학탐구실험2') return '3단계 성취도(A·B·C) — 석차등급 없음 (예외 과목)';
+ if(gun==='체육'||gun==='예술') return '3단계 성취도(A·B·C) — 석차등급 없음 (체육·예술 교과군)';
+ if(gun==='교양') return 'P(이수) — 석차등급·성취도 등급 없음 (교양 교과군)';
+ if(typ==='융합'&&(gun==='사회'||gun==='과학')) return '성취도(A~E) 절대평가 — 석차등급 없음 (사회·과학 융합선택)';
+ return '5등급 상대평가 + 성취도(A~E) 병기';
+}
 function toast(msg,kind){ const t=el('div','toast', esc(msg)); t.style.background=(kind==='err'?'var(--red)':kind==='ok'?'var(--sage-d)':'var(--ink)'); document.body.appendChild(t); setTimeout(()=>t.remove(),2200); }
 
 function openModal(title, bodyHTML, footHTML){
@@ -812,7 +825,7 @@ function showSubj(name){
    <dt>선택 유형</dt><dd><span class="tag ${typ}">${typ||'-'}</span></dd>
    <dt>편성 학점</dt><dd>${cur?cur['운영학점']+'학점':'3~5학점'}</dd>
    <dt>개설 시기</dt><dd>${sem.join(', ')||'-'} (구암고 편제 기준)</dd>
-   <dt>평가</dt><dd>${typ==='공통'||typ==='일반'?'5등급 상대평가 + 성취도(A~E)':'성취도(A~E) 절대평가 (진로·융합)'}</dd>
+   <dt>평가</dt><dd>${subjEval(name)}</dd>
    <dt>2029 수능</dt><dd>${isSu?'출제 범위 관련 과목':'수능 미출제(내신 중심)'}</dd>
  </div>`;
  if(g){ body+=`<div class="field"><h4>과목을 여는 한 줄</h4><p style="font-size:13px;color:var(--t2)">${esc(g['한줄소개'])}</p></div>`;
@@ -1004,15 +1017,15 @@ PAGES.curri=function(p){
  const conv=DB.content['등급변환표'];
  const gunCount={}; DB.curriculum.forEach(c=>{gunCount[c['교과군']]=(gunCount[c['교과군']]||0)+1;});
  p.innerHTML=`<div class="phead"><div class="eyebrow">2022 REVISED CURRICULUM</div><h1>2022 개정 교육과정</h1>
- <p>현 1학년(2026 입학생)부터 적용되는 <b>고교학점제</b> 기반 교육과정입니다. 과목은 <b>공통·일반선택·진로선택·융합선택</b>으로 구성되며, 내신은 <b>5등급 상대평가</b>로 산출됩니다.</p></div>
+ <p>2025학년도 입학생(현 2학년)부터 적용되는 <b>고교학점제</b> 기반 교육과정으로, 현 고1(2026 입학생)에도 동일하게 적용됩니다. 과목은 <b>공통·일반선택·진로선택·융합선택</b>으로 구성되며, 내신은 원칙적으로 <b>5등급 상대평가</b>로 산출됩니다. 단, 사회·과학 교과의 융합선택 9과목과 체육·예술 교과(군), 과학탐구실험1·2, 교양 교과(군)은 절대평가(성취도)만 적용됩니다.</p></div>
 
  <div class="stack" style="margin-bottom:16px">
   <div class="card pad"><div class="field" style="margin-bottom:0"><h4>과목 유형 4구분</h4></div>
    <div class="kv" style="grid-template-columns:70px 1fr;gap:10px 12px;margin-top:10px">
    <dt><span class="tag 공통">공통</span></dt><dd>모든 학생이 이수하는 기초 과목 (공통국어·수학·영어, 통합사회·과학, 한국사 등)</dd>
-   <dt><span class="tag 일반">일반</span></dt><dd>교과별 핵심 내용을 학습하는 선택 과목 (5등급 상대평가)</dd>
-   <dt><span class="tag 진로">진로</span></dt><dd>진로·적성에 따라 심화 학습하는 과목 (성취도 A~E 절대평가 중심)</dd>
-   <dt><span class="tag 융합">융합</span></dt><dd>교과 간 융합·실생활 연계 과목 (성취도 절대평가 중심)</dd></div>
+   <dt><span class="tag 일반">일반</span></dt><dd>교과별 핵심 내용을 학습하는 선택 과목 (5등급 상대평가 + 성취도 병기)</dd>
+   <dt><span class="tag 진로">진로</span></dt><dd>진로·적성에 따라 심화 학습하는 과목 (일반선택과 동일하게 5등급 상대평가 + 성취도 병기)</dd>
+   <dt><span class="tag 융합">융합</span></dt><dd>교과 간 융합·실생활 연계 과목 (원칙적으로 5등급 상대평가. 단 사회·과학 교과 융합선택 9과목만 절대평가)</dd></div>
   </div>
   <div class="card pad"><div class="field" style="margin-bottom:0"><h4>고교학점제 핵심</h4></div>
    <ul style="font-size:13px;color:var(--t2);padding-left:16px;line-height:1.9;margin-top:10px">
